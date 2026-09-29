@@ -25,12 +25,14 @@
     const select = $('#frame-select');
     select.replaceChildren(new Option('自动定位表单', ''));
     frames.forEach(frame => select.add(new Option(
-      `${frame.datang ? '大唐简历' : frame.frameId === 0 ? '主页面' : '内嵌页面'} · ${frame.controls} 个可见控件 · ${frame.location}`,
+      `${frame.adapterName || (frame.datang ? '大唐简历' : frame.frameId === 0 ? '主页面' : '内嵌页面')}${frame.shell ? '（外层）' : ''} · ${frame.controls} 个可见控件 · ${frame.location}`,
       String(frame.frameId)
     )));
     select.value = requestedFrame ? String(requestedFrame.frameId) : '';
     const datang = frames.some(frame => frame.datang || frame.shell);
-    $('#frame-hint').textContent = datang
+    $('#frame-hint').textContent = frames.some(frame => frame.adapter === 'citic')
+      ? '中信：自动定位校园简历内嵌页。教育经历从高中往上填写，完成后请核对并逐区块保存。'
+      : datang
       ? '大唐：已有高中条目用铅笔编辑；“＋”新增下一段。先高中，再从最高学历往下填写。自动新增／保存尚待内层表单验证。'
       : '自动识别内嵌表单；多个表单时请手动选择。';
   }
@@ -268,7 +270,8 @@
         setStatus(
           `识别 ${r.matched} · 已验证填入 ${r.filled} · 下拉失败 ${r.dropdownFailed} · 必填未填 ${r.requiredMissing || 0} · 新增 ${r.created} 段 · ${aiTxt}${r.aiProposed != null ? `（提议 ${r.aiProposed}，未答 ${r.aiNoAnswer || 0}）` : ''} · 未识别 ${r.unrecognized && r.unrecognized.length || 0}。` +
           ((r.aiProposed || 0) > 0 ? ' 页面右下角已弹出确认面板，请确认后再填入。' : '') +
-          ((r.pendingCount || 0) > 0 ? (r.adapter === 'hotjob' ? ` 还有 ${r.pendingCount} 项待检查，请打开“编辑简历”的预检报告查看；已有内容会保留。` : ` 还有 ${r.pendingCount} 项待填，页面右下角【待填清单】可照着填。`) : '') +
+          ((r.pendingCount || 0) > 0 ? (r.adapter ? ` 还有 ${r.pendingCount} 项待检查，请打开“编辑简历”的预检报告查看；已有内容会保留。` : ` 还有 ${r.pendingCount} 项待填，页面右下角【待填清单】可照着填。`) : '') +
+          (r.notice ? ' ' + r.notice : '') +
           (r.unrecognized && r.unrecognized.length ? ` 识别不了的字段：${r.unrecognized.join(' / ')}。` : '') +
           (r.aiStatus === 'disabled' ? ' 提示：在"编辑简历"里开启 AI 兜底并填 API Key，这些字段才会由 AI 填。' : '')
         );

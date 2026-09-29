@@ -7,11 +7,13 @@
       return el.getClientRects().length > 0 && style.display !== 'none' && style.visibility !== 'hidden';
     };
     const controls = [...document.querySelectorAll('input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),textarea,select,[contenteditable="true"],[role="combobox"]')].filter(visible).length;
+    const adapter = globalThis.ResumePageAudit?.adapterFor?.(document);
     return {
       ready: !!globalThis.ResumeAssistant,
       controls,
-      adapter: globalThis.ResumePageAudit?.adapterFor?.(document)?.id || (globalThis.ResumePageAudit?.supported?.(document) ? 'hotjob' : ''),
-      shell: !!globalThis.ResumeEducationPlan?.shell(document),
+      adapter: adapter?.id || (globalThis.ResumePageAudit?.supported?.(document) ? 'hotjob' : ''),
+      adapterName: adapter?.name || '',
+      shell: !!globalThis.ResumeEducationPlan?.shell(document) || !!adapter?.shell?.(document),
       datang: !!globalThis.ResumeEducationPlan?.isDatangURL(location.href),
       // Never return search/hash: recruitment URLs can contain session credentials.
       location: location.origin + location.pathname,

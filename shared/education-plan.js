@@ -4,7 +4,7 @@
   const levels = { '高中': 0, '大专': 1, '专科': 1, '本科': 2, '硕士': 3, '硕士研究生': 3, '博士': 4, '博士研究生': 4 };
   const fields = { school: '学校名称', degree: '学历', startDate: '入学日期', endDate: '毕业／预计毕业日期', city: '学校所在城市' };
   const text = value => String(value ?? '').trim();
-  function check(resume) {
+  function check(resume, site = 'datang') {
     const entries = resume.collections?.education || [];
     const issues = [];
     const add = (index, field, reason) => issues.push({ index, path: `education[${index}].${field}`, label: fields[field] || '是否最高学历', reason });
@@ -24,7 +24,7 @@
     const highest = entries.map((e, i) => text(e.highestEducation) === '是' ? i : -1).filter(i => i >= 0);
     if (highest.length > 1) highest.forEach(index => add(index, 'highestEducation', '有多条标为最高学历，请只保留一条'));
     const order = entries.map((e, index) => ({ index, degree: text(e.degree), level: levels[text(e.degree)] }));
-    const priority = e => e.level === 0 ? 99 : (e.level ?? -1);
+    const priority = e => site === 'citic' ? -(e.level ?? 99) : e.level === 0 ? 99 : (e.level ?? -1);
     order.sort((a, b) => priority(b) - priority(a) || a.index - b.index);
     const max = Math.max(-1, ...order.map(e => e.level ?? -1));
     for (const index of highest) if (levels[text(entries[index].degree)] < max) add(index, 'highestEducation', '此条并非资料中的最高学历，请核对');

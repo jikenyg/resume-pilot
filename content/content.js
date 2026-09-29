@@ -1721,6 +1721,7 @@
     (async () => {
       if (msg?.type === 'EXPORT_PAGE_HTML') {
         if (globalThis.ResumeEducationPlan?.shell(document)) throw Error('所选的是大唐外层导航页，请选择已加载的“大唐简历”内嵌页面再下载');
+        if (globalThis.ResumePageAudit?.adapterFor(document)?.shell?.(document)) throw Error('所选的是外层门户，请在目标页面选择实际简历内嵌页再下载');
         const clone = document.documentElement.cloneNode(true);
         // Structural evidence only: exported files must not run website code or load external resources.
         clone.querySelectorAll('script,iframe,object,embed,link,base,style,meta[http-equiv]').forEach(el => el.remove());

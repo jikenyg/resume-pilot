@@ -11,6 +11,7 @@
 
   let resume = null;
   const openCollections = new Set(['education']);
+  let educationSite = 'datang';
 
   // ---------------------------------------------------------------------------
   // 输入控件构造
@@ -114,14 +115,18 @@
     const panel = document.createElement('div');
     panel.className = 'education-checklist';
     const note = document.createElement('p');
-    note.textContent = '大唐教育经历：先补齐高中，再从最高学历往下填写至本科或专科。网站已有高中卡片时点铅笔；“＋”用于新增下一段。以下只检查资料准备情况，网页弹窗中的其他必填项仍需核对。';
+    note.textContent = '教育资料检查：选择投递网站，查看填写顺序。此处只检查资料准备情况，各网站其他必填项请通过网页预检核对。';
+    const site = document.createElement('select'); site.className = 'select'; site.setAttribute('aria-label', '教育经历填写规则');
+    site.add(new Option('大唐：高中 → 最高学历向下', 'datang'));
+    site.add(new Option('中信：高中 → 逐级至最高学历', 'citic'));
+    site.value = educationSite;
     const check = document.createElement('button');
     check.className = 'icon-btn'; check.textContent = '检查高中至最高学历资料';
     const add = document.createElement('button');
     add.className = 'icon-btn'; add.textContent = '＋ 补充高中经历'; add.dataset.action = 'add-high-school';
     const result = document.createElement('div'); result.className = 'education-check-result'; result.setAttribute('aria-live', 'polite');
     const refresh = () => {
-      const plan = globalThis.ResumeEducationPlan.check(resume);
+      const plan = globalThis.ResumeEducationPlan.check(resume, educationSite);
       result.replaceChildren();
       add.disabled = !plan.highSchoolMissing;
       const summary = document.createElement('p');
@@ -139,6 +144,7 @@
       }
     };
     check.addEventListener('click', () => { collectFromDOM(); refresh(); });
+    site.addEventListener('change', () => { educationSite = site.value; collectFromDOM(); refresh(); });
     add.addEventListener('click', () => {
       collectFromDOM();
       const entries = resume.collections.education;
@@ -153,7 +159,7 @@
       field?.focus(); field?.scrollIntoView({ block: 'center' });
       toast('已准备高中条目，请填写真实资料后保存简历。');
     });
-    panel.append(note, check, add, result); refresh();
+    panel.append(note, site, check, add, result); refresh();
     return panel;
   }
 
@@ -458,6 +464,7 @@
   }
 
   function renderAudit(report) {
+    if (/中信/.test(report.adapter) && educationSite !== 'citic') { collectFromDOM(); educationSite = 'citic'; renderCollections(); }
     const names = { ready: '字段已适配', dynamic: '动态待验证', manual: '人工处理', unmapped: '尚未映射' };
     const data = { present: '资料已有', missing: '资料缺失', invalid: '资料需修正', unknown: '尚待核对', notApplicable: '不适用' };
     $('#audit-status').textContent = `${report.adapter}：${report.total} 项；缺资料 ${report.counts.missing}，需修正 ${report.counts.invalid}，动态待验证 ${report.counts.dynamic}，人工 ${report.counts.manual}。${report.limitation} 保存简历不会自动更新本报告，请重新检查。`;
