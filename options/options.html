@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>编辑简历 · 简历助手</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">编辑简历</h1>
+    <p class="subtitle">简历数据保存在本机浏览器里（chrome.storage）。第一层页面匹配直接读取这里的字段。</p>
+
+    <section class="toolbar">
+      <button id="btn-sample" class="btn ghost">填入空白模板</button>
+      <button id="btn-clear-all" class="btn danger">清空</button>
+      <span class="spacer"></span>
+      <button id="btn-save" class="btn primary">保存简历</button>
+    </section>
+
+    <h2 class="section-title">网页填写预检</h2>
+    <section class="card">
+      <p class="muted">粘贴开发者工具 Elements 中的网页 HTML，或导入 HTML / TXT 文件。只在本机解析，不执行网页代码。检查使用当前编辑的简历；网页已有值不会导入简历。</p>
+      <p class="muted">已接入管网集团（Angular 展示态）、招聘官网（Element Plus）、Moka 和 Hotjob。资料已有不代表网页已填；请补齐真实资料、保存后重新检查。展示态及未展开条目需要在网站打开编辑后再核对。</p>
+      <textarea id="audit-html" class="textarea" rows="5" placeholder="在这里粘贴网页 HTML"></textarea>
+      <input id="audit-file" type="file" accept=".html,.htm,.txt" aria-label="导入网页代码" />
+      <button id="btn-audit-html" class="btn primary">检查网页与简历</button>
+      <p id="audit-status" class="muted" role="status"></p>
+      <div id="audit-results"></div>
+    </section>
+
+    <h2 class="section-title">基础信息</h2>
+    <div id="base-fields" class="grid"></div>
+
+    <h2 class="section-title">多段经历 / 荣誉等</h2>
+    <div id="collections"></div>
+
+    <h2 class="section-title">自定义字段</h2>
+    <p class="muted">简历里没有、但某些网页会问到的字段，可以在这里添加（例如"是否接受调剂""期望城市"）。</p>
+    <div id="custom-fields" class="custom-list"></div>
+    <button id="btn-add-custom" class="btn ghost small">+ 添加自定义字段</button>
+
+    <h2 class="section-title">AI 智能体兜底（第二阶段）</h2>
+    <div class="card">
+      <p class="muted">当规则无法填写时，AI 可根据页面字段、可选项和简历内容生成建议值；所有 AI 建议仍会先展示给你确认。</p>
+      <div class="ai-row">
+        <label class="switch">
+          <input id="ai-enabled" type="checkbox" />
+          <span>启用 AI 兜底</span>
+        </label>
+        <select id="ai-model" class="input">
+          <option value="deepseek-chat">deepseek-chat</option>
+          <option value="deepseek-reasoner">deepseek-reasoner</option>
+        </select>
+      </div>
+      <div class="ai-row">
+        <input id="ai-key" class="input" type="password" placeholder="DeepSeek API Key" />
+      </div>
+      <label class="switch ai-row">
+        <input id="ai-send-full-resume" type="checkbox" />
+        <span>允许把完整简历内容发送给 AI，用于生成限字文本与选择合适选项</span>
+      </label>
+      <p class="muted">关闭时只发送简历字段目录；开启后会将完整简历发送至你配置的 AI 服务。</p>
+      <hr />
+      <label class="switch ai-row">
+        <input id="feedback-auto-report" type="checkbox" />
+        <span>填写结束后自动上报脱敏诊断到本机</span>
+      </label>
+      <div class="ai-row">
+        <input id="feedback-endpoint" class="input" type="url" value="http://127.0.0.1:3742/api/feedback" />
+        <button id="btn-check-feedback" type="button" class="btn ghost small">检测服务</button>
+      </div>
+      <p id="feedback-status" class="muted">本机服务只记录字段标签、组件特征和失败原因，不记录简历正文或填写值。</p>
+    </div>
+
+    <div class="footer-actions">
+      <button id="btn-save-bottom" class="btn primary large">保存简历</button>
+    </div>
+  </div>
+
+  <script src="../shared/site-pipechina.js"></script>
+  <script src="../shared/site-recruit2.js"></script>
+  <script src="../shared/site-moka.js"></script>
+  <script src="../shared/schema.js"></script>
+  <script src="../shared/keywords.js"></script>
+  <script src="../shared/education-plan.js"></script>
+  <script src="../shared/page-audit.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

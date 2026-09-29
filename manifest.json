@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "简历助手",
+  "version": "0.4.1",
+  "description": "识别并自动填充在线简历表单：先用本地页面对齐（零 token），匹配不上再交给 AI 智能体兜底。",
+  "permissions": ["storage", "activeTab", "tabs", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "简历助手"
+  },
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["shared/site-pipechina.js", "shared/site-recruit2.js", "shared/site-moka.js", "shared/schema.js", "shared/keywords.js", "shared/education-plan.js", "shared/page-audit.js", "content/control-adapters.js", "content/hotjob.js", "content/content.js", "content/text-assistant.js", "content/area-controls.js", "content/area-assistant.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "assets/icon-16.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  }
+}

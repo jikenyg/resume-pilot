@@ -1,0 +1,42 @@
+# 本机自动上报的脱敏诊断；可能含招聘页面字段和 URL，不提交。
+feedback/inbox/
+
+# Credentials and private local data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+.private/
+private/
+local-data/
+browser-profile*/
+snapshots/
+exports/
+downloads/
+*.pdf
+*.doc
+*.docx
+*.zip
+
+# Dependencies, generated output and local tools
+node_modules/
+dist/
+build/
+coverage/
+test-results/
+playwright-report/
+tests/*.png
+*.log
+*.bak
+*.tmp
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.codex/
+.agents/

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>简历助手</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <span class="logo">简历助手</span>
+      <button id="btn-options" class="link" title="编辑简历">编辑简历</button>
+    </header>
+
+    <section class="card">
+      <div class="resume-line">
+        <span class="label">当前简历</span>
+        <span id="resume-summary" class="value">未加载</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="field-row">
+        <label class="label" for="frame-select">目标页面</label>
+        <select id="frame-select" class="select"><option value="">自动定位表单</option></select>
+        <button id="btn-refresh-frames" class="btn ghost small">刷新页面列表</button>
+      </div>
+      <p id="frame-hint" class="hint">自动识别内嵌表单；多个表单时请手动选择。</p>
+      <button id="btn-export-html" class="btn ghost small">下载当前表单代码</button>
+      <p class="hint">仅下载到本机，可能含页面中已填写的个人资料。先展开新增／编辑表单再下载。</p>
+    </section>
+
+    <section class="card">
+      <div class="field-row">
+        <label class="label" for="collection-select">填充集合条目</label>
+        <select id="collection-select" class="select"></select>
+      </div>
+      <p class="hint">用于"多段经历"的页面：先在这里选中要填哪一段（如第 1 段教育经历）。</p>
+    </section>
+
+    <section class="card">
+      <button id="btn-ai-area" class="btn primary">AI 选区补填 · 框选一片区域</button>
+      <p class="hint">识别选区内的文本、选择与日期组件，先预览整组建议再填写。默认保护已有内容。</p>
+      <button id="btn-ai-text" class="btn primary">AI 点选补填 · 文本试用版</button>
+      <p class="hint">点击后选中网页上的一个文本框，理解字段要求，预览答案后只填这一处。不会自动填写整页。</p>
+    </section>
+
+    <section class="actions">
+      <button id="btn-audit" class="btn ghost">检查本页缺什么资料</button>
+      <button id="btn-preview" class="btn ghost">预览识别</button>
+      <button id="btn-clear" class="btn ghost" title="清除高亮">清除</button>
+      <button id="btn-fill" class="btn primary">一键填充本页</button>
+    </section>
+
+    <section id="status" class="status" hidden></section>
+
+    <section id="diagnostic-card" class="card" hidden>
+      <div class="label">最近一次填写诊断</div>
+      <pre id="diagnostic-summary" class="hint"></pre>
+    </section>
+
+    <section class="card">
+      <div class="field-row">
+        <label class="label" for="profile-name">保存本次填写为</label>
+        <div class="row">
+          <input id="profile-name" class="input" placeholder="如：飞书网申(后端)" />
+          <button id="btn-save-profile" class="btn ghost small">保存</button>
+        </div>
+      </div>
+      <div class="field-row">
+        <label class="label" for="profile-select">已保存模板</label>
+        <select id="profile-select" class="select"></select>
+        <button id="btn-apply-profile" class="btn primary">应用到本页</button>
+      </div>
+      <p class="hint">保存本页已填好的字段；跳转到同页面的其他公司时，选它直接填充。</p>
+    </section>
+
+    <footer class="footer">
+      <span>第一步：本地页面对齐（零 token）</span>
+      <span class="dot">·</span>
+      <span id="ai-status" class="muted">AI 兜底未开启</span>
+    </footer>
+  </div>
+
+  <script src="../shared/site-pipechina.js"></script>
+  <script src="../shared/site-recruit2.js"></script>
+  <script src="../shared/site-moka.js"></script>
+  <script src="../shared/schema.js"></script>
+  <script src="../shared/keywords.js"></script>
+  <script src="../shared/education-plan.js"></script>
+  <script src="frame-router.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
