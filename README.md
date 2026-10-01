@@ -24,6 +24,8 @@ ResumePilot is a Chrome / Edge extension for resume form filling, with local fie
 
 v0.5.2 增加另一套 Hotjob 表单（基本信息、独立英语能力、实习经历、两级技能类别等）的专用适配，原有站点适配继续保留。详见 [Hotjob 扩展表单说明](docs/site-hotjob-extended.md)。
 
+v0.5.3 增加中国人寿北森表单适配：支持合并工作/实习区块、家庭成员、论著和独立声明，处理动态控件重建，保留已有公司适配。详见 [中国人寿适配说明](docs/site-chinalife.md)。
+
 ## 安装
 
 1. 下载本仓库 ZIP 并解压，或用 Git 克隆仓库。

@@ -1,11 +1,14 @@
 /* Beisen Phoenix resume forms: exact section + record + local label mapping.
  * No adjacent-label matching, global base fallbacks, AI synthesis, or form submission. */
-(function () {
+(function createAdapter(config) {
   'use strict';
+  config ||= {};
+  // Company templates share Phoenix controls, while retaining independent field maps.
+  const id = config.id || 'beisen', name = config.name || '北森 / 中央结算 Phoenix';
   const field = (key, label, type = 'text') => ({ key, label, type });
   const yesNo = (key, label) => ({ key, label, type: 'select', options: ['是', '否'] });
   const referee = [field('refereeName', '证明人姓名'), field('refereePosition', '证明人职务'), field('refereePhone', '证明人联系方式')];
-  const schema = {
+  const schema = config.schema || {
     base: [field('learningForm', '最高学历学习形式'), field('studentOrigin', '生源地（省/市/区）'), yesNo('schoolCollectiveHousehold', '是否为学校集体户口'), field('emergencyName', '紧急联系人'), field('emergencyPhone', '紧急联系电话'), yesNo('ccdcRelativeEmployment', '是否有近亲属在金融监管总局系统和中央结算公司从业'), field('additionalInfo', '附加信息：其他', 'textarea')],
     collections: [
       { key: 'publication', label: '论文/专著', entryLabel: '论文', fields: [field('name', '名称'), field('date', '发布时间', 'date'), field('journal', '所属期刊'), field('journalLevel', '期刊级别'), field('issue', '年度/期次'), field('authorOrder', '作者顺序')] },
@@ -20,7 +23,7 @@
       familyMember: [field('age', '年龄', 'number'), field('phone', '联系电话')],
     },
   };
-  const specs = {
+  const specs = config.specs || {
     '个人信息': { fields: { 姓名: 'name', 性别: 'gender', 出生日期: 'birthDate', 邮箱: 'email', 手机号码: 'phone', 证件号码: 'idCard', 最高学历: 'educationDegree', 学习形式: 'learningForm', 毕业时间: 'graduationDate', 专业名称: 'major', 生源地: 'studentOrigin', 户口所在地: 'household', 是否为学校集体户口: 'schoolCollectiveHousehold', 政治面貌: 'politicalStatus', 民族: 'nationality', 籍贯: 'origin', '身高(厘米)': 'height', '体重(公斤)': 'weight', 紧急联系人: 'emergencyName', 紧急联系电话: 'emergencyPhone', 自我评价: 'selfEval', 是否接受调剂: 'acceptAdjustment' } },
     '教育经历': { collection: 'education', identity: 'school', fields: { 学校名称: 'school', 城市: 'city', 开始时间: 'startDate', 结束时间: 'endDate', 培养方式: 'trainingMode', 学院名称: 'department', 专业类别: 'majorCategory', 专业名称: 'major', 学历: 'degree', 学位: 'academicDegree', '成绩(GPA)': 'gpa', 专业排名: 'rank', 专业课程: 'courses' } },
     '实习经历': { collection: 'internship', identity: 'company', fields: { 单位名称: 'company', 开始时间: 'startDate', 结束时间: 'endDate', 证明人: 'refereeName', 证明人职务: 'refereePosition', 证明人联系方式: 'refereePhone', 实习内容: 'description' } },
@@ -60,12 +63,13 @@
     }
     return [...result.values()];
   }
-  const match = root => blocks(root).some(b => b.title === '个人信息' && b.block.querySelector('.form-item--phoenix'));
+  const match = root => config.match ? config.match(blocks(root)) : blocks(root).some(b => b.title === '个人信息' && b.block.querySelector('.form-item--phoenix'));
   function entries(title, resume) {
     const collection = specs[title]?.collection;
-    const list = (title === '获奖情况' ? ['award', 'honor'] : [collection]).flatMap(key => (resume.collections?.[key] || []).map((data, index) => ({ data, index, collection: key })));
+    let list = (specs[title]?.collections || (title === '获奖情况' ? ['award', 'honor'] : [collection])).flatMap(key => (resume.collections?.[key] || []).map((data, index) => ({ data, index, collection: key })));
+    if (config.entries) list = config.entries(title, list);
     const level = value => ({ 高中: 0, 中专: 0, 大专: 1, 专科: 1, 本科: 2, 硕士: 3, 硕士研究生: 3, 博士: 4, 博士研究生: 4 }[clean(value)] ?? 99);
-    if (title === '教育经历') list.sort((a, b) => level(a.data.degree) - level(b.data.degree) || String(a.data.startDate || '9999').localeCompare(String(b.data.startDate || '9999')) || a.index - b.index);
+    if (title === '教育经历' && config.sortEducation !== false) list.sort((a, b) => level(a.data.degree) - level(b.data.degree) || String(a.data.startDate || '9999').localeCompare(String(b.data.startDate || '9999')) || a.index - b.index);
     return list;
   }
   const labelOf = item => clean(item.querySelector(':scope > .form-item__title .form-item__text')?.textContent);
@@ -90,6 +94,7 @@
           if (hidden(item)) continue;
           const label = labelOf(item), key = spec?.fields[label], el = control(item), index = source?.index ?? slot;
           let value = String(source?.data?.[key] ?? '');
+          value = config.value?.(key, value) ?? value;
           const path = key ? spec.collection ? `${source?.collection || spec.collection}[${index}].${key}` : `base.${key}` : '';
           // A language exam grade is acceptable as the exam name only within this language entry.
           if (block.title === '语言能力' && key === 'certificate' && !value && /^(四级|六级|专四|专八|CET[- ]?[46]|TEM[- ]?[48]|雅思|托福|IELTS|TOEFL)$/i.test(source?.data?.level || '')) value = source.data.level;
@@ -100,10 +105,13 @@
             section: block.title, label, required: !!item.querySelector('.form-item__required'), existing: has(before),
             source: `${block.title}${spec?.collection ? ` / 简历第 ${index + 1} 条` : ''} / ${label}`,
             dataStatus: has(value) ? 'present' : 'missing', capability: 'ready', reason: '按区块、条目及字段精确对应' };
-          if (!el || el.type === 'file') { row.capability = 'manual'; row.reason = '附件需要手动上传'; }
+          if (spec?.manual?.[label]) { row.capability = 'manual'; row.reason = spec.manual[label]; }
+          else if (!el || el.type === 'file') { row.capability = 'manual'; row.reason = '附件需要手动上传'; }
           else if (!path) { row.capability = 'unmapped'; row.reason = '未建立精确映射，保留空白供人工填写'; }
           else if (el.matches('.phoenix-select,.phoenix-radio-group')) { row.capability = 'dynamic'; row.reason = '通过控件提交并读回验证'; }
           const invalid = reason => { row.dataStatus = 'invalid'; row.reason = reason; };
+          const customError = config.validate?.(row);
+          if (customError) invalid(customError);
           if (value && /Date$|^date$/.test(key) && !isOngoing) {
             const date = new Date(value + 'T00:00:00Z');
             if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) invalid('需要完整有效年月日，不自动补造日期');
@@ -128,7 +136,7 @@
       if (desired > block.forms.length) rows.push({ section: block.title, label: `还有 ${desired - block.forms.length} 条待展开`, required: false, existing: false, path: '', source: '', dataStatus: 'present', capability: 'dynamic', reason: '填写时使用本区块添加按钮逐条展开' });
       if (block.title === '教育经历' && /从高中开始/.test(block.block.textContent) && !(resume.collections?.education || []).some(e => /高中/.test(e.degree || ''))) rows.push({ section: block.title, label: '高中经历缺失', required: true, existing: false, path: '', source: '教育经历', dataStatus: 'missing', capability: 'manual', reason: '网页要求从高中开始，请补充真实高中信息' });
     }
-    return { adapter: '北森 / 中央结算 Phoenix', total: rows.length, canGuaranteeComplete: false, limitation: '已适配可见表单；远程字典、条件字段及服务器校验仍以网页反馈为准。', rows,
+    return { adapter: name, total: rows.length, canGuaranteeComplete: false, limitation: '已适配可见表单；远程字典、条件字段及服务器校验仍以网页反馈为准。', rows,
       counts: Object.fromEntries(['missing', 'invalid', 'dynamic', 'manual', 'unmapped'].map(k => [k, rows.filter(r => r.dataStatus === k || r.capability === k).length])) };
   }
   async function until(fn) { for (let i = 0; i < 30; i++) { if (fn()) return true; await pause(50); } return false; }
@@ -154,6 +162,7 @@
     return same(actual, row.isOngoing ? '至今' : row.acceptedValue || row.value) ? '' : '读回内容不一致或被页面清空';
   }
   async function write(row, resume) {
+    if (row.capability === 'manual') return row.reason;
     if (!row.path || ['manual', 'unmapped'].includes(row.capability) || row.dataStatus !== 'present') return row.dataStatus === 'missing' ? '简历中缺少此项独立资料，请在编辑简历中补充' : row.reason;
     if (!visible(row.el) || row.el.disabled || row.el.readOnly || row.el.classList.contains('phoenix-select--disabled')) return '控件未启用或不可见';
     if (row.key === 'idCard') {
@@ -188,32 +197,56 @@
   }
   let busy = false;
   async function run(mode, resume = {}, highlight = () => {}) {
-    if (!['PREVIEW', 'FILL'].includes(mode) || !match(document)) return { ok: false, error: '未识别到北森简历表单' };
+    if (!['PREVIEW', 'FILL'].includes(mode) || !match(document)) return { ok: false, error: `未识别到${name}简历表单` };
     if (busy) return { ok: false, error: '正在填写，请等待本次完成' };
     busy = true;
     try {
-      const report = { mode, adapter: 'beisen', matched: 0, filled: 0, skipped: 0, created: 0, dropdownFailed: 0, issues: [], aiStatus: 'none' };
+      const report = { mode, adapter: id, matched: 0, filled: 0, skipped: 0, created: 0, dropdownFailed: 0, issues: [], aiStatus: 'none' };
       if (mode === 'FILL') await expand(resume, report);
       const rows = describe(document, resume), blocked = new Set(), written = [];
+      const recordKey = row => `${row.section}/${row.slot}`;
+      const fieldKey = row => `${recordKey(row)}/${row.label}`;
+      const seen = new Set(rows.map(fieldKey));
       const issue = (row, reason) => report.issues.push({ label: `${row.section} / 第 ${row.slot + 1} 条 / ${row.label}`, reason });
       // Never attach the rest of a resume record to an already populated, different person/school/company.
       for (const row of rows) {
         if (!specs[row.section]?.collection) continue;
-        if (row.existing && (!row.value || !same(row.before, row.value))) blocked.add(row.form);
+        if (row.existing && (!row.value || !same(row.before, row.value))) blocked.add(recordKey(row));
       }
-      for (const row of rows) {
+      for (let row of rows) {
+        if (config.refreshRows && mode === 'FILL') {
+          // Radio choices may replace controls or expose new conditional fields.
+          const current = describe(document, resume);
+          for (const next of current) {
+            if (!seen.has(fieldKey(next)) && rows.length < 500) { seen.add(fieldKey(next)); rows.push(next); }
+          }
+          row = current.find(next => fieldKey(next) === fieldKey(row));
+          if (!row) continue;
+        }
         if (row.path) report.matched++;
         if (mode === 'PREVIEW') { if (row.path && row.el) highlight(row.el, { label: row.source }); continue; }
         if (row.existing) { report.skipped++; if (row.value && !same(row.before, row.value)) issue(row, '已有内容与简历资料不同，请核对后清空需要重填的项'); continue; }
-        if (blocked.has(row.form)) { report.skipped++; issue(row, '本条已有内容与对应简历条目不一致，已停止补填，避免混入其他人的资料'); continue; }
+        if (blocked.has(recordKey(row))) { report.skipped++; issue(row, '本条已有内容与对应简历条目不一致，已停止补填，避免混入其他人的资料'); continue; }
         let error;
-        try { error = await write(row, resume); await pause(40); error ||= verify(row); } catch (_) { error = '控件操作异常，请核对后重试'; }
+        try {
+          error = await write(row, resume); await pause(40);
+          if (!error && config.refreshRows) {
+            const current = describe(document, resume).find(next => fieldKey(next) === fieldKey(row));
+            if (current) row = { ...current, acceptedValue: row.acceptedValue };
+          }
+          error ||= verify(row);
+        } catch (_) { error = '控件操作异常，请核对后重试'; }
         if (error) { issue(row, error); if (row.capability === 'dynamic' && row.value) report.dropdownFailed++; }
         else written.push(row);
       }
       if (mode === 'FILL') {
         await pause(200);
-        for (const row of written) {
+        const currentRows = config.refreshRows ? new Map(describe(document, resume).map(row => [fieldKey(row), row])) : null;
+        for (let row of written) {
+          if (currentRows) {
+            const current = currentRows.get(fieldKey(row));
+            if (current) row = { ...current, acceptedValue: row.acceptedValue };
+          }
           const error = verify(row);
           if (error) issue(row, error);
           else { report.filled++; highlight(row.el, { label: row.source }); }
@@ -225,8 +258,10 @@
       return report;
     } finally { busy = false; }
   }
-  const adapter = { id: 'beisen', name: '北森 / 中央结算 Phoenix', schema, match, scan, run, describe, entries };
+  const adapter = { id, name, schema, match, scan, run, describe, entries };
   const adapters = globalThis.ResumeSiteAdapters ||= [];
   const old = adapters.findIndex(a => a.id === adapter.id);
   if (old < 0) adapters.push(adapter); else adapters[old] = adapter;
+  globalThis.ResumeBeisenFactory = createAdapter;
+  return adapter;
 })();
