@@ -14,6 +14,7 @@
 | site-moka.cjs | Moka 映射、选项提交和年月 |
 | site-beisen.cjs | 中央结算 Phoenix 脱敏 DOM、双栏隔离、证明人/家庭隔离、重复条目、日期、单选、地区路径与冲突保护 |
 | site-chinalife.cjs | 中国人寿 15 区块脱敏 DOM、合并工作/实习、独立声明、薪资单位、动态控件重建、家庭成员与旧北森路由隔离 |
+| site-feishu.cjs | 商业卫星 ATSX 脱敏 DOM、空区块展开、非连续 ID、学校组合框、所属下拉、年月/至今、只读手机号与冲突保护 |
 | site-hotjob-extended.cjs | Hotjob 扩展模板、隐藏备用输入、动态新增字段、英语筛选、技能与地区两级选择、旧模板路由隔离 |
 | three-sites-acceptance.cjs | 加载顺序、schema、路由和报告 |
 | datang-education.cjs | 教育准备与 frame 定位 |
