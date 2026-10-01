@@ -13,6 +13,7 @@
  */
 
 const DEEPSEEK_ENDPOINT = 'https://api.deepseek.com/chat/completions';
+if (typeof importScripts === 'function') importScripts('../shared/feedback-format.js', 'feedback-queue.js');
 
 function getConfig() {
   return new Promise((resolve) => {
@@ -35,6 +36,11 @@ function isLoopbackEndpoint(value) {
 }
 
 async function reportFeedback(diagnostic) {
+  if (globalThis.ResumeFeedbackQueue) {
+    const result = await ResumeFeedbackQueue.record(diagnostic);
+    if (result.queued) ResumeFeedbackQueue.flush().catch(() => {});
+    return result;
+  }
   const cfg = await getConfig();
   if (!cfg.autoReport) return { skipped: true, reason: '自动上报未开启' };
   const endpoint = cfg.feedbackEndpoint || 'http://127.0.0.1:3742/api/feedback';
@@ -187,6 +193,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse(result);
     } else if (msg && msg.type === 'REPORT_FEEDBACK') {
       sendResponse(await reportFeedback(msg.payload && msg.payload.diagnostic));
+    } else if (msg && msg.type === 'RETRY_FEEDBACK') {
+      sendResponse(await ResumeFeedbackQueue.flush(true));
+    } else if (msg && msg.type === 'CHECK_FEEDBACK_SERVICE' && globalThis.ResumeFeedbackQueue) {
+      sendResponse(await ResumeFeedbackQueue.health());
     } else if (msg && msg.type === 'CHECK_FEEDBACK_SERVICE') {
       const cfg = await getConfig();
       const endpoint = cfg.feedbackEndpoint || 'http://127.0.0.1:3742/api/feedback';
@@ -210,6 +220,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     } else {
       sendResponse({ ok: false });
     }
-  })();
+  })().catch(() => sendResponse({ error: '操作失败，请重试；插件更新后请刷新招聘网页' }));
   return true;
 });

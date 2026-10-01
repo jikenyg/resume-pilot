@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "简历助手",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "识别并自动填充在线简历表单：先用本地页面对齐（零 token），匹配不上再交给 AI 智能体兜底。",
-  "permissions": ["storage", "activeTab", "tabs", "scripting"],
+  "permissions": ["storage", "activeTab", "tabs", "scripting", "alarms"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup/popup.html",
@@ -16,7 +16,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["shared/site-pipechina.js", "shared/site-recruit2.js", "shared/site-moka.js", "shared/site-citic.js", "shared/schema.js", "shared/keywords.js", "shared/education-plan.js", "shared/page-audit.js", "content/control-adapters.js", "content/hotjob.js", "content/content.js", "content/text-assistant.js", "content/area-controls.js", "content/area-assistant.js"],
+      "js": ["shared/feedback-format.js", "content/feedback.js", "shared/site-pipechina.js", "shared/site-recruit2.js", "shared/site-moka.js", "shared/site-citic.js", "shared/site-beisen.js", "shared/site-hotjob-extended.js", "shared/schema.js", "shared/keywords.js", "shared/education-plan.js", "shared/page-audit.js", "content/control-adapters.js", "content/hotjob.js", "content/content.js", "content/text-assistant.js", "content/area-controls.js", "content/area-assistant.js"],
       "css": ["content/content.css"],
       "run_at": "document_idle",
       "all_frames": true

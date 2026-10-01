@@ -22,7 +22,7 @@
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
     document.body.click();
   }
-  async function select(el, value) {
+  async function select(el, value, aliases = []) {
     const lists = () => [...document.querySelectorAll('.ant-select-dropdown')].filter(visible);
     close(el); await pause(80);
     const before = new Set(lists());
@@ -40,7 +40,7 @@
       if (!list) return '无法确定该字段所属的下拉弹层';
       const find = () => {
         const options = [...list.querySelectorAll('[role="option"],.ant-select-dropdown-menu-item,.ant-select-item-option')]
-          .filter(n => visible(n) && !n.matches('[aria-disabled="true"],.ant-select-dropdown-menu-item-disabled,.ant-select-item-option-disabled') && equal(n.textContent, value));
+          .filter(n => visible(n) && !n.matches('[aria-disabled="true"],.ant-select-dropdown-menu-item-disabled,.ant-select-item-option-disabled') && [value, ...aliases].some(v => equal(n.textContent, v)));
         return options.length === 1 ? options[0] : null;
       };
       let target = await until(find, 700);
@@ -49,8 +49,9 @@
         if (search && visible(search)) { set(search, value); target = await until(find); }
       }
       if (!target) return '没有唯一匹配的真实选项，请核对简历与下拉选项';
+      const expected = target.textContent.trim();
       target.click();
-      const selected = () => equal(el.querySelector('.ant-select-selection-selected-value,.ant-select-selection-item')?.textContent, value);
+      const selected = () => equal(el.querySelector('.ant-select-selection-selected-value,.ant-select-selection-item')?.textContent, expected);
       return await until(selected) ? '' : '下拉选择未被页面接受';
     } finally { close(el); }
   }
@@ -179,5 +180,5 @@
       return report;
     } finally { busy = false; }
   }
-  globalThis.ResumeHotjob = { run };
+  globalThis.ResumeHotjob = { run, select, date, set, write, verify };
 })();

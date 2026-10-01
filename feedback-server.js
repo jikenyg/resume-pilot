@@ -10,6 +10,8 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { randomUUID, createHash } = require('node:crypto');
+const { sanitize } = require('./shared/feedback-format');
 
 const argIndex = process.argv.indexOf('--dir');
 const feedbackDir = argIndex >= 0 && process.argv[argIndex + 1]
@@ -31,90 +33,55 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function cleanText(value, limit) {
-  return String(value == null ? '' : value).replace(/[\u0000-\u001f]/g, ' ').slice(0, limit);
-}
-
-function cleanPageUrl(value) {
-  try {
-    const url = new URL(String(value || ''));
-    return `${url.origin}${url.pathname}`.slice(0, 1000);
-  } catch (_) {
-    return cleanText(value, 1000).split('?')[0];
-  }
-}
-
-// 只保留修复组件需要的页面结构和失败原因，避免把个人简历内容落盘。
-function sanitizeDiagnostic(input) {
-  const page = input && input.page || {};
-  const summary = input && input.summary || {};
-  const issues = Array.isArray(input && input.issues) ? input.issues : [];
-  return {
-    version: 1,
-    receivedAt: new Date().toISOString(),
-    sourceCreatedAt: cleanText(input && input.createdAt, 64),
-    page: {
-      title: cleanText(page.title, 200),
-      url: cleanPageUrl(page.url),
-    },
-    summary: {
-      extensionVersion: cleanText(summary.extensionVersion, 32),
-      matched: Number(summary.matched) || 0,
-      filled: Number(summary.filled) || 0,
-      dropdownFailed: Number(summary.dropdownFailed) || 0,
-      requiredMissing: Number(summary.requiredMissing) || 0,
-      aiStatus: cleanText(summary.aiStatus, 80),
-      aiProposed: Number(summary.aiProposed) || 0,
-      aiNoAnswer: Number(summary.aiNoAnswer) || 0,
-      aiFieldsWithOptions: Number(summary.aiFieldsWithOptions) || 0,
-      pending: Number(summary.pending) || 0,
-    },
-    issues: issues.slice(0, 60).map((issue) => ({
-      label: cleanText(issue && issue.label, 200),
-      reason: cleanText(issue && issue.reason, 200),
-      hint: cleanText(issue && issue.hint, 500),
-      component: {
-        tag: cleanText(issue && issue.component && issue.component.tag, 40),
-        kind: cleanText(issue && issue.component && issue.component.kind, 60),
-        role: cleanText(issue && issue.component && issue.component.role, 80),
-        classHint: cleanText(issue && issue.component && issue.component.classHint, 240),
-        maxLength: Number(issue && issue.component && issue.component.maxLength) || 0,
-        inOpenShadowRoot: !!(issue && issue.component && issue.component.inOpenShadowRoot),
-      },
-      options: (Array.isArray(issue && issue.options) ? issue.options : []).slice(0, 30).map((option) => cleanText(option, 100)),
-    })),
-  };
-}
-
-const server = http.createServer((req, res) => {
+function createFeedbackServer({ dir = feedbackDir } = {}) {
+return http.createServer((req, res) => {
   if (req.method === 'OPTIONS') return send(res, 204, {});
-  if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, feedbackDir });
+  if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true, service: 'resume-feedback', protocolVersion: 2 });
   if (req.method !== 'POST' || req.url !== '/api/feedback') return send(res, 404, { ok: false, error: 'Not found' });
 
   let body = '';
   let tooLarge = false;
+  let size = 0;
   req.setEncoding('utf8');
   req.on('data', (chunk) => {
-    body += chunk;
-    if (Buffer.byteLength(body, 'utf8') > maxBodyBytes) tooLarge = true;
+    size += Buffer.byteLength(chunk, 'utf8');
+    if (size > maxBodyBytes) { tooLarge = true; body = ''; }
+    else if (!tooLarge) body += chunk;
   });
   req.on('end', () => {
     if (tooLarge) return send(res, 413, { ok: false, error: 'Feedback payload too large' });
     let parsed;
     try { parsed = JSON.parse(body); } catch (_) { return send(res, 400, { ok: false, error: 'Invalid JSON' }); }
-    const diagnostic = sanitizeDiagnostic(parsed);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return send(res, 400, { ok: false, error: 'Expected diagnostic object' });
+    const diagnostic = sanitize(parsed);
+    if (!diagnostic.id) diagnostic.id = randomUUID();
+    const digest = createHash('sha256').update(JSON.stringify(diagnostic)).digest('hex');
     try {
-      fs.mkdirSync(feedbackDir, { recursive: true });
-      const filename = `feedback-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}.json`;
-      fs.writeFileSync(path.join(feedbackDir, filename), JSON.stringify(diagnostic, null, 2), 'utf8');
+      fs.mkdirSync(dir, { recursive: true });
+      const filename = `feedback-${diagnostic.id}.json`, destination = path.join(dir, filename);
+      if (fs.existsSync(destination)) {
+        const previous = JSON.parse(fs.readFileSync(destination, 'utf8'));
+        if (previous.digest !== digest) return send(res, 409, { ok: false, error: 'Report ID conflict' });
+        return send(res, 200, { ok: true, filename, duplicate: true });
+      }
+      // Publish complete JSON only; monitoring must never read a partial report.
+      const temporary = destination + '.tmp';
+      fs.writeFileSync(temporary, JSON.stringify({ ...diagnostic, receivedAt: new Date().toISOString(), digest }, null, 2), 'utf8');
+      fs.renameSync(temporary, destination);
       return send(res, 201, { ok: true, filename });
     } catch (error) {
-      return send(res, 500, { ok: false, error: `Write failed: ${error.message}` });
+      return send(res, 500, { ok: false, error: 'Cannot persist diagnostic' });
     }
   });
 });
+}
 
+if (require.main === module) {
+const server = createFeedbackServer();
+server.on('error', error => { console.error(error.code === 'EADDRINUSE' ? '端口已占用，请检查现有反馈服务；更新后需重启旧服务。' : error.message); process.exitCode = 1; });
 server.listen(port, '127.0.0.1', () => {
-  console.log(`Resume Assistant feedback server listening on http://127.0.0.1:${port}`);
+  console.log(`Resume Assistant feedback v2 listening on http://127.0.0.1:${port}`);
   console.log(`Writing sanitized reports to ${feedbackDir}`);
 });
+}
+module.exports = { createFeedbackServer };

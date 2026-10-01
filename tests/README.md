@@ -12,6 +12,8 @@
 | site-pipechina.cjs | 管网映射与边界 |
 | site-recruit2.cjs | Element Plus 映射、新增和冲突保护 |
 | site-moka.cjs | Moka 映射、选项提交和年月 |
+| site-beisen.cjs | 中央结算 Phoenix 脱敏 DOM、双栏隔离、证明人/家庭隔离、重复条目、日期、单选、地区路径与冲突保护 |
+| site-hotjob-extended.cjs | Hotjob 扩展模板、隐藏备用输入、动态新增字段、英语筛选、技能与地区两级选择、旧模板路由隔离 |
 | three-sites-acceptance.cjs | 加载顺序、schema、路由和报告 |
 | datang-education.cjs | 教育准备与 frame 定位 |
 

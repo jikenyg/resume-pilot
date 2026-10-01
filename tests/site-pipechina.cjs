@@ -63,13 +63,13 @@ const html = body => `<title>国家管网招聘</title><div class="rec-candidate
       window.chrome = { storage: { local: {
         get: async (keys, callback) => { const r = Object.fromEntries((Array.isArray(keys) ? keys : [keys]).map(k => [k, saved[k]])); callback?.(r); return r; },
         set: async data => Object.assign(saved, data),
-      } }, runtime: { onMessage: { addListener: () => {} }, sendMessage: async () => ({ skipped: true }) } };
+      } }, runtime: { getManifest: () => ({ version: 'test-script-version' }), onMessage: { addListener: () => {} }, sendMessage: async () => ({ skipped: true }) } };
     });
     for (const file of ['shared/keywords.js', 'content/control-adapters.js', 'content/content.js']) await page.addScriptTag({ path: path.join(root, file) });
     assert.equal((await page.evaluate(() => ResumeAssistant.run('FILL'))).adapter, 'pipechina');
     assert.equal(await page.evaluate(() => saved.latestPageAudit.adapter), 'pipechina');
     assert.equal(await page.evaluate(() => JSON.stringify(saved.latestPageAudit).includes('合成')), false);
-    assert.equal(await page.evaluate(() => saved.latestFillDiagnostic.summary.extensionVersion), '0.4.0');
+    assert.equal(await page.evaluate(() => saved.latestFillDiagnostic.summary.extensionVersion), 'test-script-version');
     await page.setContent(html(section('家庭成员信息', field('name', '家庭成员姓名', '<input value="其他成员">') + field('job_title', '家庭成员职务', '<input>'))));
     await page.evaluate(() => { resume.collections.familyMember[0].position = '不得串填'; });
     assert.equal((await page.evaluate(() => ResumeSiteAdapters[0].run('FILL', resume))).filled, 0);

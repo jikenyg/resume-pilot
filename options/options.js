@@ -428,9 +428,25 @@
       $('#feedback-status').textContent = '正在检测本机反馈服务…';
       const result = await chrome.runtime.sendMessage({ type: 'CHECK_FEEDBACK_SERVICE' });
       $('#feedback-status').textContent = result && result.ok
-        ? '本机反馈服务已连接，填写后的诊断会写入 feedback/inbox。'
+        ? `本机反馈服务已连接${result.protocolVersion < 2 ? '（旧版服务，请重启 node feedback-server.js）' : ''}。报告送达后仍需分析和修复。`
         : (result && result.error) || '检测失败。';
     });
+    const refreshFeedbackQueue = async () => {
+      const stored = await chrome.storage.local.get(['feedbackOutbox', 'feedbackQueueStatus']);
+      $('#feedback-queue-status').textContent = `待发送 ${(stored.feedbackOutbox || []).length} 条。${stored.feedbackQueueStatus?.error || ''}`;
+    };
+    $('#btn-retry-feedback').addEventListener('click', async () => {
+      $('#feedback-status').textContent = '正在重试…';
+      try {
+        const result = await chrome.runtime.sendMessage({ type: 'RETRY_FEEDBACK' });
+        $('#feedback-status').textContent = result.error || result.reason || `本轮已送达 ${result.sent || 0} 条，待发送 ${result.pending || 0} 条。`;
+      } catch (_) { $('#feedback-status').textContent = '无法联系后台，请重新打开插件。'; }
+      await refreshFeedbackQueue();
+    });
+    chrome.storage.onChanged?.addListener((changes, area) => {
+      if (area === 'local' && (changes.feedbackOutbox || changes.feedbackQueueStatus)) refreshFeedbackQueue();
+    });
+    await refreshFeedbackQueue();
     $('#btn-save').addEventListener('click', save);
     $('#btn-save-bottom').addEventListener('click', save);
 

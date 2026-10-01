@@ -1,5 +1,5 @@
 # 本机自动上报的脱敏诊断；可能含招聘页面字段和 URL，不提交。
-feedback/inbox/
+feedback/
 
 # Credentials and private local data
 .env

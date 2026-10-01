@@ -70,15 +70,17 @@ async function workerTest() {
       origin.onclick = () => popup('regions', ['河北','北京'], first => popup('regions', ['唐山','石家庄'], second => { origin.textContent = first + '/' + second; document.getElementById('regions').remove(); }));
       document.body.addEventListener('click', e => { if (e.target === document.body) document.querySelectorAll('[role=listbox]').forEach(n => n.remove()); });
       window.chrome = { storage: { local: { get(k, cb) { cb({}); }, async set(v) { Object.assign(window.saved, v); } } }, runtime: {
+        getManifest: () => ({ version: '0.5.1' }),
         onMessage: { addListener(f) { window.listeners.push(f); } },
         sendMessage: async msg => {
           window.calls.push(msg);
+          if (msg.type === 'REPORT_FEEDBACK') return { queued: true };
           const values = { '姓名':'Test', '描述':'获奖经历', '学历':'硕士研究生', '技能':['JS','Java'], '性别':'女', '海外经历':true, '开始时间':'2024-09-01', '毕业月份':'2027-07', '学校':'测试大学', '籍贯':['河北','唐山'] };
           return { mappings: msg.payload.fields.map(f => ({ id: f.id, value: values[f.label] ?? '', reason:'fixture' })), usage:{total_tokens:99} };
         },
       } };
     });
-    for (const file of ['shared/schema.js','shared/keywords.js','content/control-adapters.js','content/content.js','content/text-assistant.js','content/area-controls.js','content/area-assistant.js']) await page.addScriptTag({path:path.join(root,file)});
+    for (const file of ['shared/feedback-format.js','content/feedback.js','shared/schema.js','shared/keywords.js','content/control-adapters.js','content/content.js','content/text-assistant.js','content/area-controls.js','content/area-assistant.js']) await page.addScriptTag({path:path.join(root,file)});
     const box = await page.locator('#area').boundingBox();
     const rect = {left:box.x, top:box.y, right:box.x+box.width, bottom:box.y+box.height};
     const fields = await page.evaluate(r => ResumeAreaControls.scan(r).map(f => ({label:f.label, kind:f.kind, blocked:f.blocked})), rect);
@@ -137,6 +139,11 @@ async function workerTest() {
     await page.waitForFunction(()=>document.querySelector('#resume-ai-area-host').shadowRoot.querySelector('#status').textContent.includes('本轮结束'));
     assert.equal(await page.inputValue('#missing'),'400','manual correction can retry a single missing row');
     assert.ok((await page.evaluate(()=>window.saved.latestAreaDiagnostic.fields)).some(f=>f.label==='姓名' && f.state==='failed'),'final audit detects changes in earlier successes');
+    const reports = await page.evaluate(() => window.calls.filter(m => m.type === 'REPORT_FEEDBACK').map(m => m.payload.diagnostic));
+    assert.ok(reports.some(d => d.mode === 'area' && d.issues.some(i => i.label === '姓名')), 'batch recheck failures are reported');
+    assert.ok(reports.some(d => d.issues.some(i => i.category === 'missing-data')), 'missing answers are reported separately');
+    assert.ok(reports.every(d => d.summary.extensionVersion === '0.5.1'));
+    assert.equal(JSON.stringify(reports).includes('获奖经历'), false, 'diagnostics omit answer values');
     // A partial radio selection must not silently uncheck an outside member.
     const firstRadio = await page.locator('input[value=m]').boundingBox();
     const partial = await page.evaluate(r=>ResumeAreaControls.scan(r).map(f=>f.blocked),{left:firstRadio.x-2,top:firstRadio.y-2,right:firstRadio.x+firstRadio.width+2,bottom:firstRadio.y+firstRadio.height+2});

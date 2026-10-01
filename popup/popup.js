@@ -157,7 +157,9 @@
       const summary = diagnostic.summary || {};
       const issues = diagnostic.issues || [];
       const delivery = diagnostic.delivery || {};
-      const deliveryText = delivery.status === 'sent' ? '已自动上报到本机反馈队列'
+      const deliveryText = delivery.status === 'sent' ? '已送达本机反馈服务，等待分析（不代表已修复）'
+        : delivery.status === 'queued' ? `待发送，服务恢复后自动重试：${delivery.reason || ''}`
+        : delivery.status === 'not-needed' ? '本次未发现需要上报的问题'
         : delivery.status === 'failed' ? `自动上报失败：${delivery.reason}`
           : '自动上报未开启';
       const lines = [
@@ -177,6 +179,9 @@
     renderCollectionSelect();
     loadProfiles();
     renderLatestDiagnostic();
+    chrome.storage.onChanged?.addListener((changes, area) => {
+      if (area === 'local' && changes.latestFillDiagnostic) renderLatestDiagnostic();
+    });
     const refreshFrames = async () => {
       try {
         const tab = await getActiveTab();

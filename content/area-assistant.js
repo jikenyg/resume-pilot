@@ -38,11 +38,12 @@
       if (/超过/.test(message)) return '超出字段字数上限';
       if (/授权|已有内容/.test(message)) return '保护已有内容';
       if (/答案为空|未获得答案/.test(message)) return '没有可用答案';
+      if (/AI 服务/.test(message)) return 'AI 服务请求失败，请检查配置与网络';
       if (f.state === 'success') return '已写入并核验';
       if (f.state === 'failed') return '组件执行或页面校验未通过';
       return f.state === 'ready' ? '已生成建议，待确认' : '待处理';
     };
-    return { version: '0.2.0', mode: 'area', timestamp: new Date().toISOString(),
+    return { version: chrome.runtime.getManifest?.().version || 'unknown', mode: 'area', timestamp: new Date().toISOString(),
       page: location.origin + location.pathname, summary: stats(),
       fields: fields.map(f => ({ id: f.id, label: f.label, section: f.section, kind: f.kind, entryIndex: f.entryIndex,
         required: f.required, state: f.state || 'pending', reason: safeReason(f),
@@ -50,7 +51,11 @@
   }
   function saveReport() {
     // Never store resume, suggested values, API key or model reasoning here.
-    chrome.storage.local.set({ latestAreaDiagnostic: report() }).catch(() => {});
+    const diagnostic = report();
+    chrome.storage.local.set({ latestAreaDiagnostic: diagnostic }).catch(() => {});
+    const problems = diagnostic.fields.filter(f => ['failed','missing'].includes(f.state) || fields.find(x => x.id === f.id)?.blocked);
+    globalThis.ResumeFeedback?.record('area', { matched: fields.length, filled: diagnostic.summary.success,
+      pending: problems.length }, problems.map(f => ({ label: f.label, reason: f.reason, component: { kind: f.kind } })));
   }
   function sync() {
     for (const f of fields) {
@@ -113,7 +118,10 @@
         instruction: $('#instruction').value, fields: chosen.filter(f => f.el.isConnected).map(C.describeForAI),
       } });
       if (!alive()) return;
-      if (!response || response.error) { status(response?.error || 'AI 服务未响应'); return; }
+      if (!response || response.error) {
+        for (const f of chosen) { f.state = 'failed'; f.message = 'AI 服务请求失败，请检查配置与网络'; updateRow(f); }
+        saveReport(); status(response?.error || 'AI 服务未响应'); return;
+      }
       for (const f of chosen) {
         const matches = (response.mappings || []).filter(m => m.id === f.id);
         const m = matches.length === 1 ? matches[0] : null;
@@ -127,7 +135,10 @@
       }
       stats(); saveReport();
       status(`已生成整组建议，请逐项核对。${response.usage?.total_tokens ? `本次 ${response.usage.total_tokens} tokens。` : ''} 布尔值用 true/false，多选和级联路径用 JSON 数组。`);
-    } catch (_) { if (alive()) status('生成失败，请检查 API 配置和网络后重试。'); }
+    } catch (_) { if (alive()) {
+      for (const f of chosen) { f.state = 'failed'; f.message = 'AI 服务请求失败，请检查配置与网络'; updateRow(f); }
+      saveReport(); status('生成失败，请检查 API 配置和网络后重试。');
+    } }
     finally {
       if (id === epoch && ui) {
         setBusy(false); for (const f of fields.filter(f => f.blocked)) { f.row.querySelector('.choose').disabled = true; f.row.querySelector('.retry').disabled = true; }
@@ -166,6 +177,11 @@
       }
       stats(); saveReport();
       status(stopped ? '已停止后续填写，已完成的操作不会撤销。' : '本轮结束。请检查每项结果；未提交申请。可导出不含答案和简历值的诊断。');
+    } catch (_) {
+      if (id === epoch && ui) {
+        for (const f of chosen.filter(f => f.state !== 'success')) { f.state = 'failed'; f.message = '组件执行异常'; updateRow(f); }
+        saveReport(); status('填写发生异常，诊断已记录，请核对页面。');
+      }
     } finally {
       if (id === epoch && ui) { setBusy(false); for (const f of fields.filter(f => f.blocked)) { f.row.querySelector('.choose').disabled = true; f.row.querySelector('.retry').disabled = true; } }
     }

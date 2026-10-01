@@ -49,15 +49,16 @@ async function testWorker() {
       window.testStorage = {};
       window.chrome = {
         storage: { local: { get(keys, cb) { cb(window.testStorage); }, async set() {} } },
-        runtime: { onMessage: { addListener(fn) { window.listeners.push(fn); } },
+        runtime: { getManifest: () => ({ version: '0.5.1' }), onMessage: { addListener(fn) { window.listeners.push(fn); } },
           sendMessage: async msg => {
             window.calls.push(msg);
+            if (msg.type === 'REPORT_FEEDBACK') return { queued: true };
             if (window.slow) return new Promise(resolve => { window.resolveAI = resolve; });
             return { value: '校级一等奖', reason: '来自保存的获奖经历', usage: { total_tokens: 42 } };
           } },
       };
     });
-    for (const file of ['shared/schema.js', 'shared/keywords.js', 'content/control-adapters.js', 'content/content.js', 'content/text-assistant.js']) {
+    for (const file of ['shared/feedback-format.js', 'content/feedback.js', 'shared/schema.js', 'shared/keywords.js', 'content/control-adapters.js', 'content/content.js', 'content/text-assistant.js']) {
       await page.addScriptTag({ path: path.join(root, file) });
     }
     const start = () => page.evaluate(() => {
@@ -107,6 +108,11 @@ async function testWorker() {
     await panel.locator('#apply').click();
     await page.waitForFunction(() => document.querySelector('#resume-ai-text-host').shadowRoot.querySelector('#status').textContent.includes('未验证成功'));
     assert.equal(await panel.locator('#answer').inputValue(), '替换内容', 'failed write retains answer');
+    const reports = await page.evaluate(() => window.calls.filter(m => m.type === 'REPORT_FEEDBACK').map(m => m.payload.diagnostic));
+    assert.ok(reports.some(d => d.mode === 'text' && d.issues.some(i => /拒绝写入/.test(i.reason))), 'rejected write is automatically reported');
+    assert.ok(reports.some(d => d.issues.some(i => /字数上限/.test(i.reason))), 'length failure is reported');
+    assert.ok(reports.every(d => d.summary.extensionVersion === '0.5.1'));
+    assert.equal(JSON.stringify(reports).includes('替换内容'), false, 'reports omit answers');
     await page.evaluate(() => { window.slow = true; });
     await panel.locator('#generate').click();
     await panel.locator('#pick').click();

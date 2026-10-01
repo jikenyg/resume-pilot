@@ -69,8 +69,11 @@
       <div class="ai-row">
         <input id="feedback-endpoint" class="input" type="url" value="http://127.0.0.1:3742/api/feedback" />
         <button id="btn-check-feedback" type="button" class="btn ghost small">检测服务</button>
+        <button id="btn-retry-feedback" type="button" class="btn ghost small">重试待发送报告</button>
       </div>
       <p id="feedback-status" class="muted">本机服务只记录字段标签、组件特征和失败原因，不记录简历正文或填写值。</p>
+      <p id="feedback-queue-status" class="muted" role="status"></p>
+      <p class="muted">请先保存设置。服务离线时报告保留在浏览器中，恢复后自动重试；关闭自动上报会暂停队列。送达本机服务不代表已经修复，修复结果在 Codex 对话中通知。</p>
     </div>
 
     <div class="footer-actions">
@@ -82,6 +85,8 @@
   <script src="../shared/site-recruit2.js"></script>
   <script src="../shared/site-moka.js"></script>
   <script src="../shared/site-citic.js"></script>
+  <script src="../shared/site-beisen.js"></script>
+  <script src="../shared/site-hotjob-extended.js"></script>
   <script src="../shared/schema.js"></script>
   <script src="../shared/keywords.js"></script>
   <script src="../shared/education-plan.js"></script>

@@ -26,6 +26,11 @@
     el.style.outline = '3px solid #8759e8';
   }
   function status(message) { $('#status').textContent = message; }
+  function feedback(reason, el = target) {
+    globalThis.ResumeFeedback?.record('text', { matched: 1, filled: reason ? 0 : 1, pending: reason ? 1 : 0 },
+      reason ? [{ label: el ? metadata(el).label : '所选文本框', reason,
+        component: { tag: el?.tagName, kind: el?.type || 'text', maxLength: el?.maxLength } }] : []);
+  }
   function described(el, attr) {
     const root = el.getRootNode();
     return (el.getAttribute(attr) || '').split(/\s+/).filter(Boolean)
@@ -112,21 +117,22 @@
     try {
       const result = await chrome.runtime.sendMessage({ type: 'AI_TEXT_GENERATE', payload });
       if (id !== generation || !ui) return;
-      if (!result || result.error) { status(result?.error || 'AI 服务没有响应。'); return; }
+      if (!result || result.error) { feedback('AI 服务请求失败，请检查配置与网络'); status(result?.error || 'AI 服务没有响应。'); return; }
       $('#answer').value = typeof result.value === 'string' ? result.value : '';
       $('#apply').disabled = !$('#answer').value.trim();
+      if ($('#apply').disabled) feedback('没有可用答案，请补充简历资料');
       status(`${result.reason || (result.value ? '请核对答案后确认填入。' : '简历中没有足够依据，请补充资料或说明。')}${result.usage?.total_tokens ? ` · 本次 ${result.usage.total_tokens} tokens` : ''}`);
     } catch (_) {
-      if (id === generation && ui) status('请求失败，请检查 API 配置；插件更新后需刷新网页。');
+      if (id === generation && ui) { feedback('AI 服务请求失败，请检查配置与网络'); status('请求失败，请检查 API 配置；插件更新后需刷新网页。'); }
     } finally { if (id === generation && ui) { $('#generate').disabled = false; $('#answer').disabled = false; } }
   }
   async function apply() {
     const el = target, id = generation;
     if (!supported(el)) { status('原文本框已失效或不可编辑，请重新选择。'); return; }
     const value = $('#answer').value;
-    if (!value.trim()) { status('答案为空，不会清空网页字段。'); return; }
+    if (!value.trim()) { feedback('答案为空，未写入'); status('答案为空，不会清空网页字段。'); return; }
     const max = metadata(el).maxLength;
-    if (max && value.length > max) { status(`答案有 ${value.length} 个字符，超过上限 ${max}，请缩短后再填入。`); return; }
+    if (max && value.length > max) { feedback('超出字段字数上限'); status(`答案有 ${value.length} 个字符，超过上限 ${max}，请缩短后再填入。`); return; }
     if (el.value !== before) {
       before = el.value; $('#overwrite-wrap').hidden = !before; $('#overwrite').checked = false;
       status('选中后网页内容发生变化，已停止写入。请检查原框内容，确认后再填入。'); return;
@@ -144,12 +150,14 @@
       if (id !== generation || !ui) return;
       before = el.value;
       $('#overwrite-wrap').hidden = !before; $('#overwrite').checked = false;
-      if (!supported(el) || el.value !== value) { status('未验证成功：页面拒绝、修改了内容或重建了文本框。答案已保留，请重新选择或手动复制。'); return; }
+      if (!supported(el) || el.value !== value) { feedback('页面拒绝写入、修改了内容或重建了文本框', el); status('未验证成功：页面拒绝、修改了内容或重建了文本框。答案已保留，请重新选择或手动复制。'); return; }
       if (!el.validity.valid || el.getAttribute('aria-invalid') === 'true') {
+        feedback('内容写入后页面校验未通过', el);
         status(`内容已写入，但页面校验未通过：${el.validationMessage || '请检查字段格式'}`); return;
       }
       status('已写入并核对文本一致。仅修改所选文本框，未提交表单；请确认内容符合申请要求。');
-    } catch (_) { if (id === generation && ui) status('写入失败，答案已保留供复制。'); }
+      feedback('', el);
+    } catch (_) { if (id === generation && ui) { feedback('组件写入异常', el); status('写入失败，答案已保留供复制。'); } }
     finally { if (id === generation && ui) $('#apply').disabled = false; }
   }
   function start() {

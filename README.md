@@ -4,7 +4,9 @@
 
 ResumePilot is a Chrome / Edge extension for resume form filling, with local field matching and optional DeepSeek assistance.
 
-基于 Manifest V3 的浏览器扩展，使用原生 JavaScript、HTML 和 CSS，无需构建。支持本地规则匹配、网页资料预检、多段经历选择，以及需要人工确认的 AI 补填。当前版本：**0.5.0**。
+基于 Manifest V3 的浏览器扩展，使用原生 JavaScript、HTML 和 CSS，无需构建。支持本地规则匹配、网页资料预检、多段经历选择，以及需要人工确认的 AI 补填。当前版本：**0.5.1**。
+
+本次完善填写反馈：统一接入一键填写、选区和点选补填，增加本机待发送队列、离线重试、报告去重和发送状态。自动跟进的条件及边界见 [反馈与修复跟进说明](docs/feedback-workflow.md)。
 
 本次新增中信银行校园简历适配：定位内嵌页面、从高中起逐段填写、补足经历条目，并新增年薪万元、紧急联系人、院系、第二学位、培训及中信声明等编辑字段。重新加载扩展并刷新网页后，先用“检查本页缺什么资料”补充真实资料。照片、附件和网站各区块保存仍需本人核对操作。详见 [中信适配与补充资料说明](docs/site-citic.md)。
 
@@ -17,6 +19,10 @@ ResumePilot is a Chrome / Edge extension for resume form filling, with local fie
 - **站点适配**：包含 Hotjob / Ant Design、国家管网、Element Plus 招聘表单、Moka、中信银行校园简历和部分北森 Phoenix 组件。
 - **内嵌页面选择**：选择实际承载表单的 frame，可下载当前表单结构到本机排查。
 - **本机诊断**：查看填写结果，可选本机反馈服务保存诊断。
+
+北森中央结算新版表单现使用独立适配，修复双栏字段串填、本人/证明人/家庭成员混淆，并补充论文、课程、证书等独立字段。更新后重新加载扩展、刷新招聘网页，旧错值需核对清空后再填。详见 [北森适配与使用说明](docs/site-beisen.md)。
+
+v0.5.2 增加另一套 Hotjob 表单（基本信息、独立英语能力、实习经历、两级技能类别等）的专用适配，原有站点适配继续保留。详见 [Hotjob 扩展表单说明](docs/site-hotjob-extended.md)。
 
 ## 安装
 

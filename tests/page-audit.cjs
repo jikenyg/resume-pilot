@@ -129,11 +129,11 @@ const section = (title, inner) => `<div class="form-cell"><div class="tit"><p>${
         const result = Object.fromEntries((Array.isArray(keys) ? keys : [keys]).map(key => [key, saved[key]]));
         callback?.(result); return result;
       };
-      chrome.runtime = { onMessage: { addListener: fn => { window.listener = fn; } }, sendMessage: async () => ({ skipped: true }) };
+      chrome.runtime = { getManifest: () => ({ version: 'test-script-version' }), onMessage: { addListener: fn => { window.listener = fn; } }, sendMessage: async () => ({ skipped: true }) };
     });
     for (const file of ['content/control-adapters.js', 'content/content.js']) await page.addScriptTag({ path: path.join(root, file) });
     assert.equal((await page.evaluate(() => ResumeAssistant.run('FILL'))).adapter, 'hotjob');
-    assert.equal(await page.evaluate(() => saved.latestFillDiagnostic.summary.extensionVersion), '0.4.0');
+    assert.equal(await page.evaluate(() => saved.latestFillDiagnostic.summary.extensionVersion), 'test-script-version');
     const liveAudit = await page.evaluate(() => new Promise(resolve => listener({ type: 'PAGE_AUDIT' }, {}, resolve)));
     assert.equal(liveAudit.ok, true);
     assert.equal(liveAudit.report.total, 1);

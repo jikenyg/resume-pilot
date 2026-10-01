@@ -1104,12 +1104,20 @@
   }
 
   async function applyAction(it) {
-    if (!it.el || !it.el.isConnected) return '目标字段已变化，请重新识别';
-    const sourceError = sourceValueError(it.resumeField, it.value);
-    if (sourceError) return sourceError;
-    const st = await fillControl(it.el, it.value);
-    await delay(150);
-    const error = st === 'ok' ? verifyWrittenValue(it.el, it.value) : st;
+    let error = '';
+    try {
+      if (!it.el || !it.el.isConnected) error = '目标字段已变化，请重新识别';
+      else {
+        error = sourceValueError(it.resumeField, it.value);
+        if (!error) {
+          const st = await fillControl(it.el, it.value);
+          await delay(150);
+          error = st === 'ok' ? verifyWrittenValue(it.el, it.value) : st;
+        }
+      }
+    } catch (_) { error = '组件填写异常，请重新识别'; }
+    await globalThis.ResumeFeedback?.record('fill', { matched: 1, filled: error ? 0 : 1, pending: error ? 1 : 0 },
+      error ? [{ label: it.label || '待确认字段', reason: error, component: { tag: it.el?.tagName } }] : []);
     if (!error) addHighlight(it.el, { label: it.label || it.source || it.resumeField || 'AI' });
     return error || '';
   }
@@ -1363,6 +1371,10 @@
   // 将未填/填错原因留在本机，后续可以据此判断是“组件没识别”、
   // “组件无法操作”还是“简历没有对应事实”，而不是只能靠用户回忆页面。
   async function saveFillDiagnostic(report) {
+    if (report.ok === false && !(report.issues || []).length) report.issues = [{ label: '填写流程', reason: '页面识别或填写流程未完成，请检查所选页面' }];
+    if (globalThis.ResumeFeedback) return ResumeFeedback.record(report.mode || 'fill', {
+      ...report, pending: report.pendingCount || 0,
+    }, report.issues || []);
     const uniqueIssues = [];
     const seen = new Set();
     (report.issues || []).forEach((issue) => {
@@ -1381,7 +1393,7 @@
       createdAt: new Date().toISOString(),
       page: { title: document.title, url: pageUrl },
       summary: {
-        extensionVersion: '0.4.0',
+        extensionVersion: chrome.runtime.getManifest?.().version || 'unknown',
         matched: report.matched,
         filled: report.filled,
         dropdownFailed: report.dropdownFailed,
@@ -1421,15 +1433,15 @@
     const siteAdapter = globalThis.ResumePageAudit?.adapterFor(document);
     if (siteAdapter) {
       const report = await siteAdapter.run(mode, currentResume, addHighlight);
-      if (mode === 'FILL' && report.ok !== false) {
-        await chrome.storage.local.set({ latestPageAudit: siteAdapter.scan(document, currentResume) });
+      if (mode === 'FILL') {
+        if (report.ok !== false) await chrome.storage.local.set({ latestPageAudit: siteAdapter.scan(document, currentResume) });
         await saveFillDiagnostic(report);
       }
       return report;
     }
     if (globalThis.ResumePageAudit?.supported(document)) {
       const report = await globalThis.ResumeHotjob.run(mode, currentResume, addHighlight);
-      if (mode === 'FILL' && report.ok !== false) await saveFillDiagnostic(report);
+      if (mode === 'FILL') await saveFillDiagnostic(report);
       return report;
     }
     _certFieldCache = null;
@@ -1699,13 +1711,19 @@
 
   async function applyProfile(profile) {
     let n = 0;
+    const issues = [];
     const fields = profile.fields || {};
     for (const sig in fields) {
       const el = findControlBySignature(sig);
-      if (!el) continue;
-      const st = await fillControl(el, fields[sig]);
-      if (st === 'ok') n++;
+      if (!el) { issues.push({ label: '模板字段', reason: '页面中找不到模板对应的控件' }); continue; }
+      try {
+        const st = await fillControl(el, fields[sig]);
+        const error = st === 'ok' ? verifyWrittenValue(el, fields[sig]) : st;
+        if (!error) n++;
+        else issues.push(issueForControl(el, '模板字段', error));
+      } catch (_) { issues.push({ label: '模板字段', reason: '模板填写异常' }); }
     }
+    await globalThis.ResumeFeedback?.record('profile', { matched: Object.keys(fields).length, filled: n, pending: issues.length }, issues);
     return n;
   }
 

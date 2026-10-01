@@ -29,7 +29,7 @@
   function close() {
     for (const panel of document.querySelectorAll('.constant-main-selector-container')) {
       if (!visible(panel)) continue;
-      const cancel = [...panel.querySelectorAll('.selector-footer-button button')].find(n => /取消/.test(n.textContent));
+      const cancel = [...panel.querySelectorAll('button,.phoenix-button,[role="button"]')].find(n => /^(取消|关闭)$/.test(n.textContent.trim()));
       if (cancel) click(cancel);
     }
     click(document.body);
@@ -118,36 +118,53 @@
       if (list.matches('.phoenix-date-picker')) return await fillDate(host, list, value);
       await until(() => optionNodes(list).length);
       cache.set(host, optionNodes(list).map(optionText));
-      let target = matching(optionNodes(list), value);
+      const parts = String(value).split(/[\/／>]/).map(s => s.trim()).filter(Boolean);
+      if (list.matches('.constant-main-selector-container') && parts.length > 1) {
+        for (const part of parts.slice(0, -1)) {
+          const parent = await until(() => matching(optionNodes(list), part));
+          if (!parent) return '层级选项未找到：请核对地区或专业路径';
+          const label = parent.querySelector('.item-text-label');
+          if (!label) return '层级选项缺少导航标签';
+          click(label);
+          await pause(150);
+        }
+      }
+      const choice = list.matches('.constant-main-selector-container') ? parts.at(-1) || value : value;
+      let target = matching(optionNodes(list), choice);
       if (!target) {
         const search = [...list.querySelectorAll('input')].find(node => visible(node) && !node.readOnly && !node.disabled);
         if (search) {
           const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-          setter.call(search, String(value));
+          setter.call(search, String(choice));
           search.dispatchEvent(new Event('input', { bubbles: true }));
-          target = await until(() => matching(optionNodes(list), value));
+          target = await until(() => matching(optionNodes(list), choice));
         }
       }
       if (!target) return 'no-match';
       const expected = optionText(target);
       if (list.matches('.constant-main-selector-container')) {
-        // Labels navigate the tree; only the icon changes selection, and the
-        // footer commits it. Never use a page-wide confirm/submit button.
-        const icon = target.querySelector('.icon-container svg');
-        if (!icon) return '选择器条目缺少可勾选按钮';
-        if (!/RadioChecked|CheckboxChecked/.test(icon.getAttribute('class') || '')) click(icon);
-        const confirm = [...list.querySelectorAll('.selector-footer-button button')]
-          .find(node => visible(node) && !node.disabled && /^(确定|确认|保存)$/.test(node.textContent.trim()));
-        if (!confirm) return '选择器缺少确认按钮';
+        // Tree labels navigate, icons select; flat single-choice lists may
+        // commit immediately. Confirmation stays inside this owned popup.
+        const icon = target.querySelector('.icon-container svg,.phoenix-radio,.phoenix-checkbox');
+        if (icon) {
+          if (!/RadioChecked|CheckboxChecked|--checked/.test(icon.getAttribute('class') || '')) click(icon);
+        } else click(target.querySelector('.item-text-label') || target);
         await pause(100);
-        click(confirm);
+        const accepted = () => equivalentSelection(read(host), expected, parts);
+        const confirm = [...list.querySelectorAll('button,.phoenix-button,[role="button"]')]
+          .find(node => visible(node) && !node.disabled && node.getAttribute('aria-disabled') !== 'true' && !/--disabled/.test(node.className || '') && /^(确定|确认|保存)$/.test(node.textContent.trim()));
+        if (confirm) click(confirm);
+        else if (!await until(accepted)) return '选择器未提交选项，且未找到可用确认按钮';
       } else click(target); // exactly once: a second click can toggle a multiselect off.
       close();
-      const selected = await until(() => normalize(read(host)) === normalize(expected));
+      const selected = await until(() => equivalentSelection(read(host), expected, parts));
       if (!selected) return 'dropdown-fail';
       await pause(120);
-      return normalize(read(host)) === normalize(expected) ? 'ok' : 'dropdown-fail';
+      return equivalentSelection(read(host), expected, parts) ? 'ok' : 'dropdown-fail';
     } finally { close(); }
+  }
+  function equivalentSelection(actual, expected, parts) {
+    return normalize(actual) === normalize(expected) || parts.length > 1 && normalize(actual) === normalize(parts.join('/'));
   }
   globalThis.ResumeControlAdapters = { root, read, fill, options, exclusive,
     cachedOptions: el => cache.get(root(el)) || [],
